@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>제곱근 던전 탈출</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel (for JSX) -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- KaTeX (Math Rendering) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0f172a; /* slate-950 */
+            color: white;
+            overflow-x: hidden;
+        }
+        .katex { font-size: 1.15em; color: #e2e8f0; }
+        
+        /* Custom Animations */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .animate-float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+        .animate-shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+    <div id="root" class="flex-1 flex flex-col h-full"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- Utility Components ---
+
+        // LaTeX Rendering Component
+        const Latex = ({ children }) => {
+            const containerRef = useRef(null);
+            useEffect(() => {
+                if (containerRef.current) {
+                    try {
+                        katex.render(children, containerRef.current, {
+                            throwOnError: false,
+                            displayMode: false
+                        });
+                    } catch (e) {
+                        containerRef.current.innerText = children;
+                    }
+                }
+            }, [children]);
+            return <span ref={containerRef} className="px-1 inline-block" />;
+        };
+
+        // Text with embedded LaTeX parser ($...$)
+        const ParsedText = ({ text }) => {
+            if (!text) return null;
+            const parts = text.split(/(\$[^\$]+\$)/g);
+            return (
+                <span>
+                    {parts.map((part, index) => {
+                        if (part.startsWith('$') && part.endsWith('$')) {
+                            return <Latex key={index}>{part.slice(1, -1)}</Latex>;
+                        }
+                        return <span key={index}>{part}</span>;
+                    })}
+                </span>
+            );
+        };
+
+        // --- Game Data ---
+
+        const levels = [
+            {
+                id: 1,
+                title: "1층: 제곱근의 기초",
+                description: "던전의 입구입니다. 기본기를 다지세요.",
+                questions: [
+                    {
+                        q: "다음 중 $\\sqrt{12}$를 올바르게 간단히 한 것은?",
+                        options: ["$2\\sqrt{3}$", "$3\\sqrt{2}$", "$2\\sqrt{2}$", "$4\\sqrt{3}$"],
+                        answer: 0,
+                        explanation: "$12 = 2^2 \\times 3$ 이므로 $\\sqrt{12} = \\sqrt{2^2 \\times 3} = 2\\sqrt{3}$ 입니다."
+                    },
+                    {
+                        q: "$\\sqrt{2} \\times \\sqrt{8}$ 의 값은?",
+                        options: ["$2$", "$4$", "$\\sqrt{10}$", "$16$"],
+                        answer: 1,
+                        explanation: "$\\sqrt{2 \\times 8} = \\sqrt{16} = 4$ 입니다."
+                    },
+                    {
+                        q: "$\\sqrt{48}$ 을 $k\\sqrt{3}$ 꼴로 나타낼 때, $k$의 값은?",
+                        options: ["$2$", "$3$", "$4$", "$6$"],
+                        answer: 2,
+                        explanation: "$48 = 16 \\times 3 = 4^2 \\times 3$ 이므로 $\\sqrt{48} = 4\\sqrt{3}$ 입니다. 따라서 $k=4$."
+                    }
+                ]
+            },
+            {
+                id: 2,
+                title: "2층: 분배법칙과 사칙연산",
+                description: "몬스터들이 떼로 덤벼듭니다! 분배법칙으로 물리치세요.",
+                questions: [
+                    {
+                        q: "$\\sqrt{2}(\\sqrt{3} + \\sqrt{2})$ 를 전개하면?",
+                        options: ["$\\sqrt{6} + 2$", "$\\sqrt{5} + 2$", "$\\sqrt{6} + 4$", "$2\\sqrt{3} + 2$"],
+                        answer: 0,
+                        explanation: "분배법칙을 사용하면 $\\sqrt{2}\\times\\sqrt{3} + \\sqrt{2}\\times\\sqrt{2} = \\sqrt{6} + 2$ 가 됩니다."
+                    },
+                    {
+                        q: "$\\frac{\\sqrt{18} - \\sqrt{6}}{\\sqrt{2}}$ 를 계산하면?",
+                        options: ["$3 - \\sqrt{3}$", "$9 - 3$", "$3\\sqrt{2} - \\sqrt{3}$", "$3 - 3$"],
+                        answer: 0,
+                        explanation: "$\\frac{\\sqrt{18}}{\\sqrt{2}} - \\frac{\\sqrt{6}}{\\sqrt{2}} = \\sqrt{9} - \\sqrt{3} = 3 - \\sqrt{3}$ 입니다."
+                    },
+                    {
+                        q: "$2\\sqrt{3} + 4\\sqrt{3} - 5\\sqrt{3}$ 의 값은?",
+                        options: ["$\\sqrt{3}$", "$2\\sqrt{3}$", "$3\\sqrt{3}$", "$1$"],
+                        answer: 0,
+                        explanation: "동류항 계산처럼 근호 안의 수가 같으면 계수끼리 계산합니다. $(2+4-5)\\sqrt{3} = 1\\sqrt{3} = \\sqrt{3}$"
+                    }
+                ]
+            },
+            {
+                id: 3,
+                title: "3층: 유리화의 늪",
+                description: "발이 푹푹 빠지는 늪지대입니다. 분모를 단단하게(유리화) 만드세요!",
+                questions: [
+                    {
+                        q: "$\\frac{1}{\\sqrt{5}}$ 의 분모를 유리화하면?",
+                        options: ["$\\frac{\\sqrt{5}}{5}$", "$\\sqrt{5}$", "$5\\sqrt{5}$", "$\\frac{1}{5}$"],
+                        answer: 0,
+                        explanation: "분모와 분자에 $\\sqrt{5}$를 곱합니다. $\\frac{1 \\times \\sqrt{5}}{\\sqrt{5} \\times \\sqrt{5}} = \\frac{\\sqrt{5}}{5}$"
+                    },
+                    {
+                        q: "$\\frac{2}{\\sqrt{3}-1}$ 을 유리화하면?",
+                        options: ["$\\sqrt{3}+1$", "$2(\\sqrt{3}+1)$", "$\\sqrt{3}-1$", "$1$"],
+                        answer: 0,
+                        explanation: "합차공식을 이용합니다. 분모/분자에 $(\\sqrt{3}+1)$을 곱하면, 분모는 $3-1=2$가 되어 약분됩니다. 남는 것은 $\\sqrt{3}+1$."
+                    },
+                    {
+                        q: "다음 중 계산 결과가 옳은 것은?",
+                        options: [
+                            "$\\frac{6}{\\sqrt{3}} = 2\\sqrt{3}$",
+                            "$\\frac{2}{\\sqrt{2}} = 2$",
+                            "$\\frac{1}{\\sqrt{2}+1} = \\sqrt{2}+1$",
+                            "$\\frac{3}{\\sqrt{3}} = 3$"
+                        ],
+                        answer: 0,
+                        explanation: "1번: $\\frac{6\\sqrt{3}}{3} = 2\\sqrt{3}$ (정답). 2번은 $\\sqrt{2}$, 3번은 $\\sqrt{2}-1$, 4번은 $\\sqrt{3}$이 되어야 합니다."
+                    }
+                ]
+            },
+            {
+                id: 4,
+                title: "보스방: 실전 문제",
+                description: "보스가 나타났습니다! 모든 지식을 총동원하세요.",
+                questions: [
+                    {
+                        q: "$\\sqrt{27} - \\frac{6}{\\sqrt{3}} + \\sqrt{12}$ 를 간단히 하면?",
+                        options: ["$3\\sqrt{3}$", "$2\\sqrt{3}$", "$4\\sqrt{3}$", "$5\\sqrt{3}$"],
+                        answer: 0,
+                        explanation: "$3\\sqrt{3} - 2\\sqrt{3} + 2\\sqrt{3} = 3\\sqrt{3}$ 입니다."
+                    },
+                    {
+                        q: "$(\\sqrt{5}+2)(\\sqrt{5}-3)$ 을 전개하면?",
+                        options: ["$-1 - \\sqrt{5}$", "$5 - \\sqrt{5}$", "$-1 + \\sqrt{5}$", "$11 - \\sqrt{5}$"],
+                        answer: 0,
+                        explanation: "$5 - 3\\sqrt{5} + 2\\sqrt{5} - 6 = -1 - \\sqrt{5}$ 입니다."
+                    },
+                    {
+                        q: "보스의 마지막 공격! $\\frac{\\sqrt{2}-1}{\\sqrt{2}+1}$ 의 값은?",
+                        options: ["$3 - 2\\sqrt{2}$", "$3 + 2\\sqrt{2}$", "$1$", "$\\sqrt{2}$"],
+                        answer: 0,
+                        explanation: "분모, 분자에 $(\\sqrt{2}-1)$을 곱하면 분모는 1, 분자는 $(\\sqrt{2}-1)^2 = 2 - 2\\sqrt{2} + 1 = 3 - 2\\sqrt{2}$ 가 됩니다."
+                    }
+                ]
+            }
+        ];
+
+        // --- Game Components ---
+
+        const StartScreen = ({ onStart }) => (
+            <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center bg-[url('https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=2568&auto=format&fit=crop')] bg-cover bg-center">
+                <div className="absolute inset-0 bg-black/70 backdrop-blur-sm"></div>
+                <div className="relative z-10 max-w-2xl w-full">
+                    <div className="mb-8 animate-float">
+                        <span className="text-8xl filter drop-shadow-[0_0_20px_rgba(255,255,255,0.5)]">🏰</span>
+                    </div>
+                    <h1 className="text-5xl md:text-6xl font-black mb-4 bg-gradient-to-r from-emerald-400 to-cyan-400 text-transparent bg-clip-text drop-shadow-lg">
+                        제곱근 던전
+                    </h1>
+                    <p className="text-slate-300 text-lg md:text-xl mb-10 font-light">
+                        유리화의 검과 제곱근의 방패를 들고<br/>
+                        수학의 미궁을 탈출하세요!
+                    </p>
+                    <button 
+                        onClick={onStart}
+                        className="group relative px-12 py-5 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-2xl transition-all hover:scale-105 shadow-[0_0_30px_rgba(16,185,129,0.4)] overflow-hidden"
+                    >
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+                        <span className="relative">모험 시작하기 ⚔️</span>
+                    </button>
+                </div>
+            </div>
+        );
+
+        const LevelIntro = ({ level, onNext }) => (
+            <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-slate-900 animate-fade-in text-center">
+                <h2 className="text-4xl font-bold text-emerald-400 mb-6">{level.title}</h2>
+                <p className="text-xl text-slate-300 mb-10 max-w-lg leading-relaxed">{level.description}</p>
+                <div className="flex gap-4">
+                    <button onClick={onNext} className="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 rounded-lg font-bold text-lg shadow-lg hover:shadow-emerald-500/30 transition-all">
+                        입장하기
+                    </button>
+                </div>
+            </div>
+        );
+
+        const QuizCard = ({ question, qIndex, totalQ, onAnswer }) => {
+            return (
+                <div className="w-full max-w-3xl mx-auto p-4">
+                    {/* Progress Bar */}
+                    <div className="mb-6 flex items-center gap-4">
+                        <div className="flex-1 h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                            <div 
+                                className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 transition-all duration-500"
+                                style={{ width: `${((qIndex) / totalQ) * 100}%` }}
+                            ></div>
+                        </div>
+                        <span className="text-emerald-400 font-bold font-mono">
+                             {qIndex + 1} / {totalQ}
+                        </span>
+                    </div>
+
+                    {/* Question Area */}
+                    <div className="glass-panel p-8 md:p-10 rounded-2xl mb-6 min-h-[200px] flex items-center justify-center shadow-2xl relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500"></div>
+                        <h3 className="text-2xl md:text-3xl font-bold text-center leading-relaxed">
+                            <ParsedText text={question.q} />
+                        </h3>
+                    </div>
+
+                    {/* Options */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {question.options.map((opt, idx) => (
+                            <button
+                                key={idx}
+                                onClick={() => onAnswer(idx)}
+                                className="p-6 glass-panel hover:bg-slate-700/50 rounded-xl text-xl font-medium transition-all hover:-translate-y-1 hover:border-emerald-500/50 hover:shadow-[0_4px_20px_rgba(16,185,129,0.2)] text-left flex items-center"
+                            >
+                                <span className="w-8 h-8 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center text-sm mr-4 border border-slate-700">
+                                    {String.fromCharCode(65 + idx)}
+                                </span>
+                                <ParsedText text={opt} />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const FeedbackModal = ({ isCorrect, explanation, onNext }) => (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                <div className={`w-full max-w-lg bg-slate-800 rounded-2xl p-8 border-2 shadow-2xl ${isCorrect ? 'border-emerald-500' : 'border-rose-500'}`}>
+                    <div className="text-center mb-6">
+                        <div className="text-6xl mb-4">
+                            {isCorrect ? '🎉' : '💥'}
+                        </div>
+                        <h2 className={`text-3xl font-bold mb-2 ${isCorrect ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            {isCorrect ? '정답입니다!' : '오답입니다!'}
+                        </h2>
+                    </div>
+                    
+                    <div className="bg-slate-900/50 p-6 rounded-xl mb-8 border border-slate-700">
+                        <div className="text-yellow-400 font-bold mb-2 text-sm uppercase tracking-wider">Solution</div>
+                        <div className="text-slate-200 text-lg leading-relaxed">
+                            <ParsedText text={explanation} />
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={onNext}
+                        className={`w-full py-4 rounded-xl font-bold text-xl shadow-lg transition-transform hover:scale-[1.02] active:scale-[0.98] ${
+                            isCorrect 
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white' 
+                            : 'bg-rose-600 hover:bg-rose-500 text-white'
+                        }`}
+                    >
+                        다음으로 이동
+                    </button>
+                </div>
+            </div>
+        );
+
+        const FinalScreen = ({ score, total, onRestart }) => {
+            const percentage = (score / total) * 100;
+            let title, desc, icon;
+
+            if (percentage === 100) {
+                title = "던전 정복 완료!";
+                desc = "완벽한 수학적 지식으로 모든 몬스터를 물리쳤습니다. 당신은 진정한 제곱근 마스터!";
+                icon = "👑";
+            } else if (percentage >= 70) {
+                title = "던전 탈출 성공";
+                desc = "훌륭한 실력입니다! 몇몇 몬스터가 도망갔지만 안전하게 탈출했습니다.";
+                icon = "🗝️";
+            } else {
+                title = "탈출 실패...";
+                desc = "아직 수련이 부족합니다. 제곱근의 비밀을 더 연구하고 다시 도전하세요.";
+                icon = "💀";
+            }
+
+            return (
+                <div className="flex flex-col items-center justify-center min-h-screen p-6 text-center animate-fade-in">
+                    <div className="text-8xl mb-6 animate-bounce">{icon}</div>
+                    <h1 className="text-4xl md:text-5xl font-bold mb-4 text-white">{title}</h1>
+                    <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-400 to-orange-500 mb-6 drop-shadow-sm">
+                        {score} <span className="text-2xl text-slate-500">/ {total}</span>
+                    </div>
+                    <p className="text-slate-400 text-lg mb-10 max-w-md">{desc}</p>
+                    <button 
+                        onClick={onRestart}
+                        className="px-10 py-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-bold text-xl shadow-lg transition-all border border-slate-600 hover:border-slate-500 flex items-center gap-2"
+                    >
+                        <span>🔄</span> 다시 도전하기
+                    </button>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [gameState, setGameState] = useState('start'); // start, intro, playing, result
+            const [currentLevelIdx, setCurrentLevelIdx] = useState(0);
+            const [currentQIdx, setCurrentQIdx] = useState(0);
+            const [score, setScore] = useState(0);
+            const [showFeedback, setShowFeedback] = useState(false);
+            const [lastIsCorrect, setLastIsCorrect] = useState(false);
+            const [lastExplanation, setLastExplanation] = useState("");
+
+            const currentLevel = levels[currentLevelIdx];
+            const currentQuestions = currentLevel?.questions || [];
+            const currentQuestion = currentQuestions[currentQIdx];
+
+            const startGame = () => {
+                setGameState('intro');
+                setCurrentLevelIdx(0);
+                setCurrentQIdx(0);
+                setScore(0);
+            };
+
+            const startLevel = () => {
+                setGameState('playing');
+            };
+
+            const handleAnswer = (optionIdx) => {
+                const isCorrect = optionIdx === currentQuestion.answer;
+                setLastIsCorrect(isCorrect);
+                setLastExplanation(currentQuestion.explanation);
+                setShowFeedback(true);
+                
+                if (isCorrect) {
+                    setScore(prev => prev + 1);
+                }
+            };
+
+            const handleNextQuestion = () => {
+                setShowFeedback(false);
+                
+                // Check if level is finished
+                if (currentQIdx + 1 < currentQuestions.length) {
+                    setCurrentQIdx(prev => prev + 1);
+                } else {
+                    // Level finished
+                    if (currentLevelIdx + 1 < levels.length) {
+                        setCurrentLevelIdx(prev => prev + 1);
+                        setCurrentQIdx(0);
+                        setGameState('intro');
+                    } else {
+                        setGameState('result');
+                    }
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-950 text-white selection:bg-emerald-500/30">
+                    {gameState === 'start' && <StartScreen onStart={startGame} />}
+                    
+                    {gameState === 'intro' && (
+                        <LevelIntro level={currentLevel} onNext={startLevel} />
+                    )}
+                    
+                    {gameState === 'playing' && (
+                        <div className="flex flex-col min-h-screen pt-10">
+                            <div className="text-center mb-2">
+                                <span className="px-4 py-1 rounded-full bg-slate-800 border border-slate-700 text-sm text-slate-400 uppercase tracking-widest">
+                                    {currentLevel.title}
+                                </span>
+                            </div>
+                            <QuizCard 
+                                question={currentQuestion}
+                                qIndex={currentQIdx}
+                                totalQ={currentQuestions.length}
+                                onAnswer={handleAnswer}
+                            />
+                        </div>
+                    )}
+                    
+                    {showFeedback && (
+                        <FeedbackModal 
+                            isCorrect={lastIsCorrect}
+                            explanation={lastExplanation}
+                            onNext={handleNextQuestion}
+                        />
+                    )}
+
+                    {gameState === 'result' && (
+                        <FinalScreen 
+                            score={score} 
+                            total={levels.reduce((acc, lvl) => acc + lvl.questions.length, 0)} 
+                            onRestart={startGame} 
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
